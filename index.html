@@ -1,1 +1,1432 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuaraTeks AI — Perekam Suara & Transkripsi Real-Time</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cyber: {
+                            950: '#050811',
+                            900: '#0a0f1e',
+                            800: '#11182c',
+                            cyan: '#06b6d4',
+                            emerald: '#10b981',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #050811;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(6, 182, 212, 0.12), transparent 35%),
+                radial-gradient(circle at 85% 80%, rgba(16, 185, 129, 0.10), transparent 40%);
+            background-attachment: fixed;
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+        }
+        .glass-subtle {
+            background: rgba(10, 15, 30, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+        }
+        .neon-glow-cyan {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.35);
+        }
+        .neon-glow-emerald {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+        }
+        .recording-pulse {
+            animation: pulse-ring 1.6s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 16px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.3); }
+        ::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.3); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(6, 182, 212, 0.6); }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 pointer-events-none max-w-sm w-full px-4 sm:px-0"></div>
+
+    <!-- Header Navigation -->
+    <header class="sticky top-0 z-30 glass-card border-b border-cyan-500/20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+            <!-- Brand Logo -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center text-slate-950 font-bold shadow-lg neon-glow-cyan shrink-0">
+                    <i data-lucide="mic" class="w-5 h-5 stroke-[2.5]"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-extrabold text-lg sm:text-xl tracking-tight bg-gradient-to-r from-cyan-300 via-white to-emerald-300 bg-clip-text text-transparent">
+                            SuaraTeks AI
+                        </h1>
+                        <span class="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                            v2.0 Live
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400 hidden sm:block">Perekam Suara Cerdas, Live Transkrip & Analisis AI</p>
+                </div>
+            </div>
+
+            <!-- Header Controls -->
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                <!-- Capture Mode Selector (Solves Mobile Mic Conflict) -->
+                <div class="relative" title="Pilih mode akses mikrofon agar optimal di perangkat Anda">
+                    <select id="capture-mode" aria-label="Mode Perekaman" class="appearance-none bg-slate-900/90 border border-cyan-500/30 text-cyan-200 text-xs font-semibold rounded-xl py-2 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-cyan-400 cursor-pointer">
+                        <option value="dual">⚡ Live Teks + Audio</option>
+                        <option value="speech_only">📱 Mode Mobile (Live Teks Prioritas)</option>
+                        <option value="audio_ai">🎙️ Rekam Audio + AI Transkrip</option>
+                    </select>
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-cyan-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                </div>
+
+                <!-- Language Selector -->
+                <div class="relative">
+                    <select id="lang-select" aria-label="Bahasa Pengenalan Suara" class="appearance-none bg-slate-900/90 border border-slate-700 text-slate-200 text-xs font-semibold rounded-xl py-2 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer">
+                        <option value="id-ID" selected>🇮🇩 Indonesia (ID)</option>
+                        <option value="en-US">🇺🇸 English (US)</option>
+                    </select>
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                </div>
+
+                <!-- Voice Punctuation Toggle -->
+                <button id="btn-voice-cmd-toggle" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                    <span class="hidden md:inline">Perintah Suara:</span>
+                    <span id="voice-cmd-badge" class="font-mono font-bold">ON</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Diagnostic & Sandbox Status Banner -->
+    <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <div id="diagnostic-bar" class="glass-subtle rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2.5">
+                <span id="diag-indicator" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="font-semibold text-slate-300">Status Sistem:</span>
+                <span id="diag-message" class="text-cyan-300 font-medium">Siap. Pilih "Live Teks + Audio" atau "Mode Mobile" untuk mulai.</span>
+            </div>
+            <div id="iframe-notice" class="hidden text-amber-300 flex items-center gap-1.5">
+                <i data-lucide="shield-alert" class="w-4 h-4 shrink-0"></i>
+                <span>Terdeteksi mode pratinjau/iframe: Jika teks live terblokir browser, gunakan tombol <strong>"Transkripsi Ulang via AI"</strong> setelah merekam.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Workspace Grid -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Studio Recorder & Transcript Editor (7 Cols) -->
+        <div class="lg:col-span-7 flex flex-col gap-6">
+
+            <!-- Audio Studio Card -->
+            <section class="glass-card rounded-3xl p-5 sm:p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2.5">
+                        <span id="rec-dot" class="w-3 h-3 rounded-full bg-slate-600"></span>
+                        <span id="rec-status-text" class="text-sm font-bold tracking-wide text-slate-300">STANDBY</span>
+                    </div>
+                    <div id="timer-display" class="font-mono text-2xl sm:text-3xl font-bold tracking-widest text-cyan-300">
+                        00:00:00
+                    </div>
+                </div>
+
+                <!-- Real-Time Audio Waveform Canvas -->
+                <div class="relative w-full h-24 sm:h-28 rounded-2xl bg-slate-950/90 border border-cyan-500/20 overflow-hidden mb-5 flex items-center justify-center">
+                    <canvas id="waveform-canvas" class="w-full h-full block"></canvas>
+                    <div id="canvas-overlay" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 pointer-events-none">
+                        <i data-lucide="activity" class="w-6 h-6 mb-1 text-cyan-500/50"></i>
+                        <span class="text-xs">Visualizer Gelombang Suara Real-Time</span>
+                    </div>
+                </div>
+
+                <!-- Primary Controls -->
+                <div class="flex flex-wrap items-center justify-center gap-3">
+                    <button id="btn-start" class="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-sm shadow-lg neon-glow-cyan transition transform active:scale-95">
+                        <i data-lucide="mic" class="w-5 h-5 stroke-[2.5]"></i>
+                        <span id="btn-start-label">Mulai Rekam</span>
+                    </button>
+
+                    <button id="btn-pause" disabled class="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 disabled:opacity-35 disabled:pointer-events-none font-semibold text-sm transition active:scale-95">
+                        <i data-lucide="pause" class="w-4 h-4"></i>
+                        <span>Jeda</span>
+                    </button>
+
+                    <button id="btn-stop" disabled class="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 disabled:opacity-35 disabled:pointer-events-none font-semibold text-sm transition active:scale-95">
+                        <i data-lucide="square" class="w-4 h-4"></i>
+                        <span>Selesai</span>
+                    </button>
+
+                    <button id="btn-bookmark" disabled title="Tandai Momen Penting (Timestamp)" class="flex items-center gap-2 px-4 py-3.5 rounded-2xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 disabled:opacity-35 disabled:pointer-events-none font-semibold text-sm transition active:scale-95">
+                        <i data-lucide="bookmark-plus" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Tandai Momen</span>
+                    </button>
+                </div>
+
+                <!-- Recorded Audio Playback & AI Re-Transcribe Bar -->
+                <div id="audio-result-panel" class="hidden mt-5 pt-5 border-t border-slate-800 space-y-3">
+                    <div class="flex flex-col sm:flex-row items-center gap-3">
+                        <audio id="audio-player" controls class="w-full h-10 rounded-xl"></audio>
+                        <button id="btn-download-audio" class="w-full sm:w-auto shrink-0 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition">
+                            <i data-lucide="download" class="w-4 h-4 text-cyan-400"></i>
+                            <span>Unduh Audio</span>
+                        </button>
+                    </div>
+
+                    <!-- Gemini AI Fallback / Precision Audio Transcription Button -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-gradient-to-r from-cyan-950/60 to-emerald-950/60 border border-cyan-500/30">
+                        <div class="text-xs text-slate-300">
+                            <span class="font-semibold text-cyan-300">Transkripsi Akurasi Tinggi AI:</span> Ubah file rekaman audio di atas menjadi teks rapi secara otomatis.
+                        </div>
+                        <button id="btn-ai-transcribe-audio" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-md transition active:scale-95">
+                            <i data-lucide="sparkles" class="w-4 h-4"></i>
+                            <span>Transkripsi Ulang via AI</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Live Transcript Editor Card -->
+            <section class="glass-card rounded-3xl p-5 sm:p-6 flex-1 flex flex-col">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="file-text" class="w-5 h-5 text-emerald-400"></i>
+                        <h2 class="font-bold text-base sm:text-lg text-white">Transkrip Langsung & Editor</h2>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button id="btn-clear-editor" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            <span>Bersihkan</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Interim Speech Stream Box -->
+                <div id="interim-container" class="hidden mb-3 px-4 py-2.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center gap-2.5">
+                    <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping shrink-0"></span>
+                    <p id="interim-text" class="text-xs sm:text-sm text-cyan-200 italic truncate">Mendengarkan suara Anda...</p>
+                </div>
+
+                <!-- Main Textarea -->
+                <textarea id="transcript-editor" rows="10" placeholder="Tekan 'Mulai Rekam' dan mulai berbicara — teks akan muncul otomatis di sini secara real-time...&#10;&#10;💡 Tips: Ucapkan 'tanda titik', 'tanda koma', 'tanda tanya', atau 'baris baru' untuk tanda baca otomatis. Jika memakai HP dan teks belum muncul, ganti mode di kanan atas ke 'Mode Mobile (Live Teks Prioritas)'." class="w-full flex-1 p-4 rounded-2xl bg-slate-950/80 border border-slate-800 focus:border-cyan-500/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-sm sm:text-base text-slate-100 leading-relaxed resize-y placeholder:text-slate-600"></textarea>
+
+                <!-- AI Smart Text Processing Toolbar -->
+                <div class="mt-4 pt-4 border-t border-slate-800/80">
+                    <div class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-cyan-400 mb-2.5">
+                        <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+                        <span>Asisten Cerdas AI (1-Klik Olah Teks)</span>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <button id="btn-ai-clean" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-cyan-500/25 text-xs font-semibold text-cyan-200 transition active:scale-95">
+                            <i data-lucide="wand-2" class="w-3.5 h-3.5 text-cyan-400 shrink-0"></i>
+                            <span class="truncate">Rapikan Teks</span>
+                        </button>
+                        <button id="btn-ai-summary" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-emerald-500/25 text-xs font-semibold text-emerald-200 transition active:scale-95">
+                            <i data-lucide="list-checks" class="w-3.5 h-3.5 text-emerald-400 shrink-0"></i>
+                            <span class="truncate">Ringkas Poin</span>
+                        </button>
+                        <button id="btn-ai-todo" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-purple-500/25 text-xs font-semibold text-purple-200 transition active:scale-95">
+                            <i data-lucide="check-square" class="w-3.5 h-3.5 text-purple-400 shrink-0"></i>
+                            <span class="truncate">Ekstrak To-Do</span>
+                        </button>
+                        <button id="btn-ai-translate" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/25 text-xs font-semibold text-amber-200 transition active:scale-95">
+                            <i data-lucide="languages" class="w-3.5 h-3.5 text-amber-400 shrink-0"></i>
+                            <span class="truncate">Terjemah ID↔EN</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Export & Save Footer -->
+                <div class="mt-4 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button id="btn-copy" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs sm:text-sm shadow-md transition active:scale-95">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                            <span>Salin Teks</span>
+                        </button>
+                        <button id="btn-save-local" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-semibold text-xs sm:text-sm transition active:scale-95">
+                            <i data-lucide="save" class="w-4 h-4"></i>
+                            <span>Simpan Riwayat</span>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <button id="btn-exp-txt" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-mono font-semibold text-slate-300 transition">.TXT</button>
+                        <button id="btn-exp-md" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-mono font-semibold text-cyan-300 transition">.MD</button>
+                        <button id="btn-exp-doc" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-mono font-semibold text-emerald-300 transition">.DOC</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Right Column: Analytics, Smart Output, Bookmarks & History (5 Cols) -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+
+            <!-- Real-Time Speech Analytics Card -->
+            <section class="glass-card rounded-3xl p-5 sm:p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-base flex items-center gap-2 text-white">
+                        <i data-lucide="gauge" class="w-5 h-5 text-cyan-400"></i>
+                        <span>Metrik & Analisis Bicara</span>
+                    </h3>
+                    <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">REAL-TIME</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="p-3.5 rounded-2xl glass-subtle">
+                        <span class="text-xs text-slate-400 block">Kata / Karakter</span>
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span id="stat-words" class="text-xl font-bold font-mono text-white">0</span>
+                            <span class="text-xs text-slate-500 font-mono">/ <span id="stat-chars">0</span></span>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 rounded-2xl glass-subtle">
+                        <span class="text-xs text-slate-400 block">Kecepatan (WPM)</span>
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span id="stat-wpm" class="text-xl font-bold font-mono text-cyan-400">0</span>
+                            <span class="text-xs text-slate-500">kata/mnt</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 rounded-2xl glass-subtle">
+                        <span class="text-xs text-slate-400 block">Kata Pengisi (Filler)</span>
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span id="stat-fillers" class="text-xl font-bold font-mono text-amber-400">0</span>
+                            <span class="text-xs text-slate-500">ee/anu/gitu</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 rounded-2xl glass-subtle">
+                        <span class="text-xs text-slate-400 block">Estimasi Waktu Baca</span>
+                        <div class="mt-1">
+                            <span id="stat-readtime" class="text-xl font-bold font-mono text-emerald-400">0 dtk</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AI Output, Bookmarks & Voice Commands Tabs -->
+            <section class="glass-card rounded-3xl p-5 sm:p-6">
+                <div class="flex p-1 rounded-2xl bg-slate-950/80 border border-slate-800 mb-4">
+                    <button data-tab="ai-result" class="tab-btn active flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                        Hasil AI
+                    </button>
+                    <button data-tab="bookmarks" class="tab-btn flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold transition text-slate-400 hover:text-white">
+                        Penanda (<span id="bookmark-badge">0</span>)
+                    </button>
+                    <button data-tab="voice-help" class="tab-btn flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold transition text-slate-400 hover:text-white">
+                        Perintah Suara
+                    </button>
+                </div>
+
+                <!-- Tab 1: AI Processing Output -->
+                <div id="panel-ai-result" class="tab-panel">
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="ai-output-title" class="text-xs font-semibold text-emerald-400">Ringkasan / To-Do / Terjemahan AI</span>
+                        <button id="btn-copy-ai-output" class="text-[11px] text-cyan-400 hover:underline flex items-center gap-1">
+                            <i data-lucide="copy" class="w-3 h-3"></i> Salin Hasil
+                        </button>
+                    </div>
+                    <div id="ai-output-box" class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs sm:text-sm text-slate-300 leading-relaxed min-h-[130px] max-h-60 overflow-y-auto whitespace-pre-wrap">
+                        <span class="text-slate-500 italic">Gunakan tombol "Ringkas Poin", "Ekstrak To-Do", atau "Terjemah ID↔EN" di bawah editor untuk melihat hasil analisis AI di sini.</span>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Smart Bookmarks -->
+                <div id="panel-bookmarks" class="tab-panel hidden">
+                    <div id="bookmarks-container" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        <div class="p-4 rounded-2xl bg-slate-950/60 text-center text-xs text-slate-500 italic">
+                            Belum ada momen ditandai. Tekan "Tandai Momen" atau ucapkan "tandai penting" saat merekam.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Voice Commands Cheat Sheet -->
+                <div id="panel-voice-help" class="tab-panel hidden">
+                    <p class="text-xs text-slate-400 mb-2.5">Ucapkan kata kunci berikut saat merekam untuk memformat otomatis:</p>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="p-2.5 rounded-xl glass-subtle flex justify-between items-center">
+                            <span class="text-slate-300">"tanda titik"</span>
+                            <code class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold">.</code>
+                        </div>
+                        <div class="p-2.5 rounded-xl glass-subtle flex justify-between items-center">
+                            <span class="text-slate-300">"tanda koma"</span>
+                            <code class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold">,</code>
+                        </div>
+                        <div class="p-2.5 rounded-xl glass-subtle flex justify-between items-center">
+                            <span class="text-slate-300">"tanda tanya"</span>
+                            <code class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold">?</code>
+                        </div>
+                        <div class="p-2.5 rounded-xl glass-subtle flex justify-between items-center">
+                            <span class="text-slate-300">"tanda seru"</span>
+                            <code class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold">!</code>
+                        </div>
+                        <div class="p-2.5 rounded-xl glass-subtle flex justify-between items-center">
+                            <span class="text-slate-300">"baris baru"</span>
+                            <code class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">↵ Enter</code>
+                        </div>
+                        <div class="p-2.5 rounded-xl glass-subtle flex justify-between items-center">
+                            <span class="text-slate-300">"tandai penting"</span>
+                            <code class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">★ Pin</code>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Saved History Card (IndexedDB + LocalStorage) -->
+            <section class="glass-card rounded-3xl p-5 sm:p-6 flex-1 flex flex-col">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="font-bold text-base flex items-center gap-2 text-white">
+                        <i data-lucide="database" class="w-5 h-5 text-emerald-400"></i>
+                        <span>Riwayat Rekaman & Transkrip</span>
+                    </h3>
+                    <span id="history-badge" class="text-xs font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">0</span>
+                </div>
+
+                <!-- Search Filter -->
+                <div class="relative mb-3">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" id="history-search" placeholder="Cari isi transkrip atau tanggal..." class="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-cyan-500/50">
+                </div>
+
+                <!-- History Items List -->
+                <div id="history-list" class="space-y-2.5 max-h-64 overflow-y-auto pr-1 flex-1">
+                    <!-- Rendered dynamically -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/80 py-4 px-4 text-center text-xs text-slate-500">
+        <p>SuaraTeks AI — Dirancang untuk transkripsi suara real-time yang akurat, cepat, dan aman di perangkat Anda.</p>
+    </footer>
+
+    <!-- Application Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+
+            // =========================================================
+            // 1. GLOBAL STATE & ENVIRONMENT DETECTION
+            // =========================================================
+            const apiKey = ""; // Runtime-provided Gemini API key
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isInIframe = window.self !== window.top;
+
+            const state = {
+                isRecording: false,
+                isPaused: false,
+                voiceCommands: true,
+                elapsedSeconds: 0,
+                timerId: null,
+                mediaRecorder: null,
+                audioChunks: [],
+                currentAudioBlob: null,
+                currentAudioUrl: null,
+                mediaStream: null,
+                audioCtx: null,
+                analyser: null,
+                animFrameId: null,
+                recognition: null,
+                speechActive: false,
+                bookmarks: [],
+                records: []
+            };
+
+            const FILLER_WORDS = ['ee', 'eee', 'eh', 'anu', 'terus', 'gitu', 'kayak', 'apa ya', 'maksudnya', 'umm', 'uh', 'like'];
+
+            // =========================================================
+            // 2. DOM REFERENCES
+            // =========================================================
+            const el = {
+                captureMode: document.getElementById('capture-mode'),
+                langSelect: document.getElementById('lang-select'),
+                btnVoiceCmdToggle: document.getElementById('btn-voice-cmd-toggle'),
+                voiceCmdBadge: document.getElementById('voice-cmd-badge'),
+                diagIndicator: document.getElementById('diag-indicator'),
+                diagMessage: document.getElementById('diag-message'),
+                iframeNotice: document.getElementById('iframe-notice'),
+                recDot: document.getElementById('rec-dot'),
+                recStatusText: document.getElementById('rec-status-text'),
+                timerDisplay: document.getElementById('timer-display'),
+                canvas: document.getElementById('waveform-canvas'),
+                canvasOverlay: document.getElementById('canvas-overlay'),
+                btnStart: document.getElementById('btn-start'),
+                btnStartLabel: document.getElementById('btn-start-label'),
+                btnPause: document.getElementById('btn-pause'),
+                btnStop: document.getElementById('btn-stop'),
+                btnBookmark: document.getElementById('btn-bookmark'),
+                audioResultPanel: document.getElementById('audio-result-panel'),
+                audioPlayer: document.getElementById('audio-player'),
+                btnDownloadAudio: document.getElementById('btn-download-audio'),
+                btnAiTranscribeAudio: document.getElementById('btn-ai-transcribe-audio'),
+                interimContainer: document.getElementById('interim-container'),
+                interimText: document.getElementById('interim-text'),
+                editor: document.getElementById('transcript-editor'),
+                btnClearEditor: document.getElementById('btn-clear-editor'),
+                btnAiClean: document.getElementById('btn-ai-clean'),
+                btnAiSummary: document.getElementById('btn-ai-summary'),
+                btnAiTodo: document.getElementById('btn-ai-todo'),
+                btnAiTranslate: document.getElementById('btn-ai-translate'),
+                btnCopy: document.getElementById('btn-copy'),
+                btnSaveLocal: document.getElementById('btn-save-local'),
+                btnExpTxt: document.getElementById('btn-exp-txt'),
+                btnExpMd: document.getElementById('btn-exp-md'),
+                btnExpDoc: document.getElementById('btn-exp-doc'),
+                statWords: document.getElementById('stat-words'),
+                statChars: document.getElementById('stat-chars'),
+                statWpm: document.getElementById('stat-wpm'),
+                statFillers: document.getElementById('stat-fillers'),
+                statReadtime: document.getElementById('stat-readtime'),
+                aiOutputTitle: document.getElementById('ai-output-title'),
+                aiOutputBox: document.getElementById('ai-output-box'),
+                btnCopyAiOutput: document.getElementById('btn-copy-ai-output'),
+                bookmarksContainer: document.getElementById('bookmarks-container'),
+                bookmarkBadge: document.getElementById('bookmark-badge'),
+                historyList: document.getElementById('history-list'),
+                historyBadge: document.getElementById('history-badge'),
+                historySearch: document.getElementById('history-search'),
+                toastContainer: document.getElementById('toast-container')
+            };
+
+            // Auto-select mobile-safe mode on smartphones to prevent mic lock conflict
+            if (isMobile) {
+                el.captureMode.value = 'speech_only';
+                updateDiagnostic('info', 'Perangkat Mobile terdeteksi: Mode "Live Teks Prioritas" dipilih agar mikrofon tidak bentrok.');
+            }
+            if (isInIframe) {
+                el.iframeNotice.classList.remove('hidden');
+            }
+
+            // =========================================================
+            // 3. HELPER & DIAGNOSTIC FUNCTIONS
+            // =========================================================
+            function showToast(msg, type = 'info') {
+                const styles = {
+                    success: 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200',
+                    error: 'bg-rose-950/95 border-rose-500/50 text-rose-200',
+                    warning: 'bg-amber-950/95 border-amber-500/50 text-amber-200',
+                    info: 'bg-slate-900/95 border-cyan-500/50 text-cyan-200'
+                };
+                const toast = document.createElement('div');
+                toast.className = `${styles[type] || styles.info} border backdrop-blur-md px-4 py-3 rounded-2xl shadow-2xl text-xs sm:text-sm font-medium transition-all duration-300 translate-y-3 opacity-0 pointer-events-auto`;
+                toast.textContent = msg;
+                el.toastContainer.appendChild(toast);
+
+                requestAnimationFrame(() => toast.classList.remove('translate-y-3', 'opacity-0'));
+                setTimeout(() => {
+                    toast.classList.add('opacity-0', 'translate-y-2');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3500);
+            }
+
+            function updateDiagnostic(status, message) {
+                const colors = {
+                    ok: 'bg-emerald-400',
+                    active: 'bg-cyan-400 animate-ping',
+                    warn: 'bg-amber-400',
+                    err: 'bg-rose-500',
+                    info: 'bg-cyan-400'
+                };
+                el.diagIndicator.className = `w-2.5 h-2.5 rounded-full shrink-0 ${colors[status] || colors.info}`;
+                el.diagMessage.textContent = message;
+            }
+
+            function formatDuration(sec) {
+                const h = Math.floor(sec / 3600).toString().padStart(2, '0');
+                const m = Math.floor((sec % 3600) / 60).toString().padStart(2, '0');
+                const s = (sec % 60).toString().padStart(2, '0');
+                return `${h}:${m}:${s}`;
+            }
+
+            // Tab Switcher
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-btn').forEach(b => {
+                        b.classList.remove('active', 'bg-cyan-500/20', 'text-cyan-300', 'border', 'border-cyan-500/30', 'font-bold');
+                        b.classList.add('text-slate-400', 'font-semibold');
+                    });
+                    btn.classList.add('active', 'bg-cyan-500/20', 'text-cyan-300', 'border', 'border-cyan-500/30', 'font-bold');
+                    btn.classList.remove('text-slate-400', 'font-semibold');
+
+                    const target = btn.dataset.tab;
+                    document.querySelectorAll('.tab-panel').forEach(p => {
+                        p.classList.toggle('hidden', p.id !== `panel-${target}`);
+                    });
+                });
+            });
+
+            // Toggle Voice Commands
+            el.btnVoiceCmdToggle.addEventListener('click', () => {
+                state.voiceCommands = !state.voiceCommands;
+                el.voiceCmdBadge.textContent = state.voiceCommands ? 'ON' : 'OFF';
+                if (state.voiceCommands) {
+                    el.btnVoiceCmdToggle.className = 'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition';
+                    showToast('Perintah tanda baca suara aktif', 'success');
+                } else {
+                    el.btnVoiceCmdToggle.className = 'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-slate-400 border border-slate-700 transition';
+                    showToast('Perintah tanda baca suara dimatikan', 'info');
+                }
+            });
+
+            // =========================================================
+            // 4. WEB SPEECH API ENGINE (LIVE SPEECH-TO-TEXT)
+            // =========================================================
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            function applyVoicePunctuation(raw) {
+                if (!state.voiceCommands) return raw;
+                let text = raw;
+
+                if (/\b(tandai penting|catat momen|bookmark)\b/i.test(text)) {
+                    addBookmark('Ditandai lewat suara');
+                    text = text.replace(/\b(tandai penting|catat momen|bookmark)\b/gi, '');
+                }
+
+                const rules = [
+                    { regex: /\s*\b(tanda titik|titik)\b/gi, rep: '.' },
+                    { regex: /\s*\b(tanda koma|koma)\b/gi, rep: ',' },
+                    { regex: /\s*\b(tanda tanya)\b/gi, rep: '?' },
+                    { regex: /\s*\b(tanda seru)\b/gi, rep: '!' },
+                    { regex: /\s*\b(titik dua)\b/gi, rep: ':' },
+                    { regex: /\s*\b(baris baru|paragraf baru)\b/gi, rep: '\n' }
+                ];
+                rules.forEach(r => { text = text.replace(r.regex, r.rep); });
+                return text;
+            }
+
+            function appendFinalSpeech(chunk) {
+                let cleaned = applyVoicePunctuation(chunk).trim();
+                if (!cleaned) return;
+
+                const current = el.editor.value;
+                const needSpace = current.length > 0 && !current.endsWith(' ') && !current.endsWith('\n') && !/^[.,?!:]/.test(cleaned);
+
+                if (current.length === 0 || /[.?!]\s*$/.test(current) || current.endsWith('\n')) {
+                    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+                }
+
+                el.editor.value = current + (needSpace ? ' ' : '') + cleaned;
+                el.editor.scrollTop = el.editor.scrollHeight;
+                updateMetrics();
+            }
+
+            function initSpeechEngine() {
+                if (!SpeechRecognition) {
+                    updateDiagnostic('warn', 'Browser tidak mendukung Web Speech API. Gunakan mode "Rekam Audio + AI Transkrip".');
+                    return false;
+                }
+
+                const rec = new SpeechRecognition();
+                rec.lang = el.langSelect.value;
+                rec.continuous = true;
+                rec.interimResults = true;
+                rec.maxAlternatives = 1;
+
+                rec.onstart = () => {
+                    state.speechActive = true;
+                    el.interimContainer.classList.remove('hidden');
+                    el.interimText.textContent = 'Mendengarkan suara Anda...';
+                    updateDiagnostic('active', `Speech Engine Aktif (${el.langSelect.value}) — Silakan berbicara...`);
+                };
+
+                rec.onspeechstart = () => {
+                    updateDiagnostic('active', 'Suara terdeteksi! Mengubah ke teks secara langsung...');
+                };
+
+                rec.onresult = (event) => {
+                    let interim = '';
+                    let final = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            final += transcript;
+                        } else {
+                            interim += transcript;
+                        }
+                    }
+
+                    if (interim) {
+                        el.interimContainer.classList.remove('hidden');
+                        el.interimText.textContent = interim;
+                    }
+
+                    if (final) {
+                        appendFinalSpeech(final);
+                        el.interimText.textContent = 'Mendengarkan...';
+                    }
+                };
+
+                rec.onerror = (event) => {
+                    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                        updateDiagnostic('err', 'Akses Speech Engine diblokir browser/iframe. Gunakan tombol "Transkripsi Ulang via AI" setelah merekam.');
+                        showToast('Speech Engine terblokir izin sandbox/mikrofon. Rekam audio lalu klik "Transkripsi Ulang via AI".', 'warning');
+                    } else if (event.error === 'audio-capture') {
+                        updateDiagnostic('warn', 'Konflik mikrofon terdeteksi. Coba ganti mode di kanan atas ke "Mode Mobile".');
+                    } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                        updateDiagnostic('warn', `Info Speech Engine: ${event.error}`);
+                    }
+                };
+
+                rec.onend = () => {
+                    state.speechActive = false;
+                    if (state.isRecording && !state.isPaused && el.captureMode.value !== 'audio_ai') {
+                        // Gentle restart delay to avoid mobile browser throttling
+                        setTimeout(() => {
+                            if (state.isRecording && !state.isPaused) {
+                                try { rec.start(); } catch (e) {}
+                            }
+                        }, 250);
+                    } else {
+                        el.interimContainer.classList.add('hidden');
+                    }
+                };
+
+                state.recognition = rec;
+                return true;
+            }
+
+            // =========================================================
+            // 5. WAVEFORM VISUALIZER & RECORDING ORCHESTRATION
+            // =========================================================
+            function resizeCanvas() {
+                const parent = el.canvas.parentElement.getBoundingClientRect();
+                el.canvas.width = parent.width;
+                el.canvas.height = parent.height;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            function renderVisualizer() {
+                if (!state.isRecording || state.isPaused) return;
+                const ctx = el.canvas.getContext('2d');
+                ctx.clearRect(0, 0, el.canvas.width, el.canvas.height);
+
+                const bars = Math.min(60, Math.floor(el.canvas.width / 8));
+                const barWidth = (el.canvas.width / bars) * 0.6;
+                const gap = (el.canvas.width / bars) * 0.4;
+
+                const grad = ctx.createLinearGradient(0, 0, el.canvas.width, 0);
+                grad.addColorStop(0, '#06b6d4');
+                grad.addColorStop(0.5, '#10b981');
+                grad.addColorStop(1, '#22d3ee');
+                ctx.fillStyle = grad;
+
+                if (state.analyser) {
+                    const data = new Uint8Array(state.analyser.frequencyBinCount);
+                    state.analyser.getByteFrequencyData(data);
+                    const step = Math.floor(data.length / bars);
+
+                    for (let i = 0; i < bars; i++) {
+                        const val = data[i * step] || 0;
+                        const h = Math.max(4, (val / 255) * (el.canvas.height * 0.85));
+                        const x = i * (barWidth + gap) + gap / 2;
+                        const y = (el.canvas.height - h) / 2;
+                        ctx.beginPath();
+                        ctx.roundRect(x, y, barWidth, h, 4);
+                        ctx.fill();
+                    }
+                } else {
+                    // Simulated gentle pulse wave when in Speech-Only mobile mode
+                    const now = Date.now() / 180;
+                    for (let i = 0; i < bars; i++) {
+                        const wave = Math.sin(now + i * 0.35) * 0.5 + 0.5;
+                        const h = Math.max(6, wave * (el.canvas.height * 0.45));
+                        const x = i * (barWidth + gap) + gap / 2;
+                        const y = (el.canvas.height - h) / 2;
+                        ctx.beginPath();
+                        ctx.roundRect(x, y, barWidth, h, 4);
+                        ctx.fill();
+                    }
+                }
+
+                state.animFrameId = requestAnimationFrame(renderVisualizer);
+            }
+
+            async function startRecordingSession() {
+                const mode = el.captureMode.value;
+
+                // Resume if paused
+                if (state.isRecording && state.isPaused) {
+                    state.isPaused = false;
+                    if (state.mediaRecorder && state.mediaRecorder.state === 'paused') {
+                        state.mediaRecorder.resume();
+                    }
+                    if (state.recognition && mode !== 'audio_ai') {
+                        try { state.recognition.start(); } catch (e) {}
+                    }
+                    startTimer();
+                    renderVisualizer();
+                    setControlsState('recording');
+                    showToast('Perekaman dilanjutkan', 'info');
+                    return;
+                }
+
+                // Fresh Start
+                state.elapsedSeconds = 0;
+                el.timerDisplay.textContent = '00:00:00';
+                el.audioResultPanel.classList.add('hidden');
+                state.currentAudioBlob = null;
+
+                // Step 1: Start Speech Recognition FIRST if mode uses live speech (prevents mobile hardware lock)
+                if (mode === 'dual' || mode === 'speech_only') {
+                    const ok = initSpeechEngine();
+                    if (ok && state.recognition) {
+                        try {
+                            state.recognition.start();
+                        } catch (e) {
+                            console.warn('Speech start warning:', e);
+                        }
+                    }
+                }
+
+                // Step 2: Start MediaRecorder & AudioContext if mode is 'dual' or 'audio_ai'
+                if (mode === 'dual' || mode === 'audio_ai') {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({
+                            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                        });
+                        state.mediaStream = stream;
+
+                        state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                        const src = state.audioCtx.createMediaStreamSource(stream);
+                        state.analyser = state.audioCtx.createAnalyser();
+                        state.analyser.fftSize = 256;
+                        src.connect(state.analyser);
+
+                        state.audioChunks = [];
+                        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+                        state.mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+                        state.mediaRecorder.ondataavailable = (e) => {
+                            if (e.data && e.data.size > 0) state.audioChunks.push(e.data);
+                        };
+
+                        state.mediaRecorder.onstop = () => {
+                            const blob = new Blob(state.audioChunks, { type: 'audio/webm' });
+                            state.currentAudioBlob = blob;
+                            if (state.currentAudioUrl) URL.revokeObjectURL(state.currentAudioUrl);
+                            state.currentAudioUrl = URL.createObjectURL(blob);
+                            el.audioPlayer.src = state.currentAudioUrl;
+                            el.audioResultPanel.classList.remove('hidden');
+                        };
+
+                        state.mediaRecorder.start(500);
+                        if (mode === 'audio_ai') {
+                            updateDiagnostic('active', 'Merekam audio berkualitas tinggi... Klik Selesai lalu "Transkripsi Ulang via AI".');
+                        }
+                    } catch (err) {
+                        console.warn('MediaRecorder error:', err);
+                        if (mode === 'audio_ai') {
+                            updateDiagnostic('err', 'Gagal mengakses mikrofon perangkat.');
+                            showToast('Izin mikrofon ditolak atau tidak tersedia.', 'error');
+                            return;
+                        } else {
+                            showToast('Perekam file audio dilewati (mikrofon dipakai Live Teks).', 'warning');
+                        }
+                    }
+                }
+
+                state.isRecording = true;
+                state.isPaused = false;
+                el.canvasOverlay.classList.add('hidden');
+                resizeCanvas();
+                startTimer();
+                renderVisualizer();
+                setControlsState('recording');
+                showToast('Perekaman dimulai — silakan berbicara!', 'success');
+            }
+
+            function pauseRecordingSession() {
+                if (!state.isRecording || state.isPaused) return;
+                state.isPaused = true;
+
+                if (state.mediaRecorder && state.mediaRecorder.state === 'recording') {
+                    state.mediaRecorder.pause();
+                }
+                if (state.recognition) {
+                    try { state.recognition.stop(); } catch (e) {}
+                }
+                clearInterval(state.timerId);
+                cancelAnimationFrame(state.animFrameId);
+                setControlsState('paused');
+                updateDiagnostic('warn', 'Perekaman dijeda sementara.');
+                showToast('Perekaman dijeda', 'warning');
+            }
+
+            function stopRecordingSession() {
+                if (!state.isRecording) return;
+                state.isRecording = false;
+                state.isPaused = false;
+
+                if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+                    state.mediaRecorder.stop();
+                }
+                if (state.recognition) {
+                    try { state.recognition.stop(); } catch (e) {}
+                }
+                if (state.mediaStream) {
+                    state.mediaStream.getTracks().forEach(t => t.stop());
+                    state.mediaStream = null;
+                }
+                if (state.audioCtx) {
+                    state.audioCtx.close();
+                    state.audioCtx = null;
+                    state.analyser = null;
+                }
+
+                clearInterval(state.timerId);
+                cancelAnimationFrame(state.animFrameId);
+                const ctx = el.canvas.getContext('2d');
+                ctx.clearRect(0, 0, el.canvas.width, el.canvas.height);
+                el.canvasOverlay.classList.remove('hidden');
+                el.interimContainer.classList.add('hidden');
+
+                setControlsState('idle');
+                updateMetrics();
+                updateDiagnostic('ok', 'Perekaman selesai. Hasil transkrip & audio siap digunakan.');
+                showToast('Perekaman selesai!', 'success');
+            }
+
+            function startTimer() {
+                clearInterval(state.timerId);
+                state.timerId = setInterval(() => {
+                    state.elapsedSeconds++;
+                    el.timerDisplay.textContent = formatDuration(state.elapsedSeconds);
+                    if (state.elapsedSeconds % 2 === 0) updateMetrics();
+                }, 1000);
+            }
+
+            function setControlsState(mode) {
+                if (mode === 'recording') {
+                    el.recDot.className = 'w-3 h-3 rounded-full bg-rose-500 recording-pulse';
+                    el.recStatusText.textContent = 'MEREKAM';
+                    el.recStatusText.className = 'text-sm font-extrabold tracking-wider text-rose-400';
+                    el.btnStart.disabled = true;
+                    el.btnStart.classList.add('opacity-40', 'pointer-events-none');
+                    el.btnStartLabel.textContent = 'Sedang Merekam...';
+                    el.btnPause.disabled = false;
+                    el.btnStop.disabled = false;
+                    el.btnBookmark.disabled = false;
+                } else if (mode === 'paused') {
+                    el.recDot.className = 'w-3 h-3 rounded-full bg-amber-400';
+                    el.recStatusText.textContent = 'DIJEDA';
+                    el.recStatusText.className = 'text-sm font-extrabold tracking-wider text-amber-400';
+                    el.btnStart.disabled = false;
+                    el.btnStart.classList.remove('opacity-40', 'pointer-events-none');
+                    el.btnStartLabel.textContent = 'Lanjutkan';
+                    el.btnPause.disabled = true;
+                    el.btnStop.disabled = false;
+                    el.btnBookmark.disabled = false;
+                } else {
+                    el.recDot.className = 'w-3 h-3 rounded-full bg-slate-600';
+                    el.recStatusText.textContent = 'STANDBY';
+                    el.recStatusText.className = 'text-sm font-bold tracking-wide text-slate-300';
+                    el.btnStart.disabled = false;
+                    el.btnStart.classList.remove('opacity-40', 'pointer-events-none');
+                    el.btnStartLabel.textContent = 'Mulai Rekam';
+                    el.btnPause.disabled = true;
+                    el.btnStop.disabled = true;
+                    el.btnBookmark.disabled = true;
+                }
+            }
+
+            el.btnStart.addEventListener('click', startRecordingSession);
+            el.btnPause.addEventListener('click', pauseRecordingSession);
+            el.btnStop.addEventListener('click', stopRecordingSession);
+
+            el.btnDownloadAudio.addEventListener('click', () => {
+                if (!state.currentAudioUrl) return;
+                const a = document.createElement('a');
+                a.href = state.currentAudioUrl;
+                a.download = `SuaraTeks-Audio-${new Date().toISOString().slice(0, 10)}.webm`;
+                a.click();
+                showToast('Mengunduh file audio rekaman...', 'success');
+            });
+
+            // =========================================================
+            // 6. GEMINI API INTEGRATION (AUDIO TRANSCRIPTION & SMART TEXT AI)
+            // =========================================================
+            async function callGeminiWithRetry(payload, maxRetries = 3) {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                let delay = 1000;
+                for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                    try {
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        const data = await response.json();
+                        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (!text) throw new Error('Respons AI kosong');
+                        return text.trim();
+                    } catch (err) {
+                        if (attempt === maxRetries) throw err;
+                        await new Promise(res => setTimeout(res, delay));
+                        delay *= 2;
+                    }
+                }
+            }
+
+            function blobToBase64(blob) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64 = reader.result.split(',')[1];
+                        resolve(base64);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            }
+
+            // Fallback / High-Accuracy Audio-to-Text via Gemini API
+            el.btnAiTranscribeAudio.addEventListener('click', async () => {
+                if (!state.currentAudioBlob) {
+                    showToast('Tidak ada file rekaman audio untuk ditranskripsi', 'warning');
+                    return;
+                }
+
+                const origHtml = el.btnAiTranscribeAudio.innerHTML;
+                el.btnAiTranscribeAudio.disabled = true;
+                el.btnAiTranscribeAudio.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Memproses Audio...</span>`;
+                lucide.createIcons();
+                updateDiagnostic('active', 'Mengirim audio ke Gemini AI untuk transkripsi presisi tinggi...');
+
+                try {
+                    const base64Audio = await blobToBase64(state.currentAudioBlob);
+                    const langName = el.langSelect.value === 'id-ID' ? 'Bahasa Indonesia' : 'English';
+
+                    const payload = {
+                        contents: [{
+                            parts: [
+                                { text: `Transkripsikan rekaman suara ini ke dalam teks ${langName} yang rapi, akurat, lengkap dengan tanda baca dan huruf kapital yang tepat. Langsung berikan hasil transkripnya tanpa kalimat pengantar.` },
+                                {
+                                    inlineData: {
+                                        mimeType: state.currentAudioBlob.type || 'audio/webm',
+                                        data: base64Audio
+                                    }
+                                }
+                            ]
+                        }]
+                    };
+
+                    const resultText = await callGeminiWithRetry(payload);
+                    const existing = el.editor.value.trim();
+                    el.editor.value = existing ? `${existing}\n\n[Transkrip AI]:\n${resultText}` : resultText;
+                    updateMetrics();
+                    updateDiagnostic('ok', 'Transkripsi audio via Gemini AI berhasil!');
+                    showToast('Transkripsi audio via AI berhasil!', 'success');
+                } catch (err) {
+                    console.error('AI Audio Transcription failed:', err);
+                    updateDiagnostic('err', 'Gagal mentranskripsikan audio via AI.');
+                    showToast('Gagal memproses audio via AI. Periksa koneksi internet Anda.', 'error');
+                } finally {
+                    el.btnAiTranscribeAudio.disabled = false;
+                    el.btnAiTranscribeAudio.innerHTML = origHtml;
+                    lucide.createIcons();
+                }
+            });
+
+            // Smart Text AI Actions (Clean, Summarize, To-Do, Translate)
+            async function runTextAiAction(mode, buttonEl) {
+                const sourceText = el.editor.value.trim();
+                if (!sourceText) {
+                    showToast('Teks editor masih kosong!', 'warning');
+                    return;
+                }
+
+                const origHtml = buttonEl.innerHTML;
+                buttonEl.disabled = true;
+                buttonEl.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Memproses...</span>`;
+                lucide.createIcons();
+
+                const prompts = {
+                    clean: {
+                        title: 'Teks Dirapikan (Editor Utama)',
+                        instruction: 'Perbaiki ejaan, tanda baca, huruf kapital, dan hapus kata pengisi (seperti "ee", "anu", "gitu") dari teks transkrip berikut tanpa mengubah makna aslinya. Berikan langsung teks yang sudah rapi:\n\n'
+                    },
+                    summary: {
+                        title: 'Ringkasan Poin Penting',
+                        instruction: 'Buatkan ringkasan poin-poin utama (bullet points) yang padat dan jelas dalam Bahasa Indonesia dari teks berikut:\n\n'
+                    },
+                    todo: {
+                        title: 'Daftar Tugas & Action Items',
+                        instruction: 'Ekstrak semua rencana tindakan, tugas (to-do list), tenggat waktu, atau keputusan penting dari teks berikut dalam format checklist yang rapi:\n\n'
+                    },
+                    translate: {
+                        title: 'Hasil Terjemahan (ID ↔ EN)',
+                        instruction: 'Deteksi bahasa teks berikut. Jika berbahasa Indonesia, terjemahkan ke Bahasa Inggris yang natural dan profesional. Jika berbahasa Inggris, terjemahkan ke Bahasa Indonesia yang baik dan natural. Berikan langsung hasil terjemahannya:\n\n'
+                    }
+                };
+
+                try {
+                    const selected = prompts[mode];
+                    const output = await callGeminiWithRetry({
+                        contents: [{ parts: [{ text: selected.instruction + sourceText }] }]
+                    });
+
+                    if (mode === 'clean') {
+                        el.editor.value = output;
+                        updateMetrics();
+                        showToast('Teks berhasil dirapikan oleh AI!', 'success');
+                    } else {
+                        el.aiOutputTitle.textContent = selected.title;
+                        el.aiOutputBox.textContent = output;
+                        // Automatically switch right tab to AI Result
+                        document.querySelector('[data-tab="ai-result"]').click();
+                        showToast(`${selected.title} berhasil dibuat!`, 'success');
+                    }
+                } catch (err) {
+                    // Local offline fallback if API is unreachable
+                    if (mode === 'clean') {
+                        let localClean = sourceText;
+                        FILLER_WORDS.forEach(fw => {
+                            localClean = localClean.replace(new RegExp(`\\b${fw}\\b,?\\s*`, 'gi'), '');
+                        });
+                        localClean = localClean.replace(/\s+/g, ' ').replace(/(^\s*\w|[.?!]\s+\w)/g, c => c.toUpperCase()).trim();
+                        el.editor.value = localClean;
+                        updateMetrics();
+                        showToast('Teks dirapikan menggunakan mode lokal!', 'info');
+                    } else {
+                        showToast('Gagal menghubungi layanan AI. Silakan coba lagi.', 'error');
+                    }
+                } finally {
+                    buttonEl.disabled = false;
+                    buttonEl.innerHTML = origHtml;
+                    lucide.createIcons();
+                }
+            }
+
+            el.btnAiClean.addEventListener('click', () => runTextAiAction('clean', el.btnAiClean));
+            el.btnAiSummary.addEventListener('click', () => runTextAiAction('summary', el.btnAiSummary));
+            el.btnAiTodo.addEventListener('click', () => runTextAiAction('todo', el.btnAiTodo));
+            el.btnAiTranslate.addEventListener('click', () => runTextAiAction('translate', el.btnAiTranslate));
+
+            el.btnCopyAiOutput.addEventListener('click', () => {
+                const txt = el.aiOutputBox.textContent.trim();
+                if (!txt) return;
+                const temp = document.createElement('textarea');
+                temp.value = txt;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                temp.remove();
+                showToast('Hasil AI disalin ke clipboard!', 'success');
+            });
+
+            // =========================================================
+            // 7. BOOKMARKS & REAL-TIME SPEECH METRICS
+            // =========================================================
+            function addBookmark(note = '') {
+                const time = formatDuration(state.elapsedSeconds);
+                const words = el.editor.value.trim().split(/\s+/).filter(Boolean);
+                const preview = note || (words.length > 0 ? `"...${words.slice(-7).join(' ')}"` : 'Momen penting ditandai');
+                state.bookmarks.push({ id: Date.now(), time, preview });
+                renderBookmarks();
+                showToast(`Momen ditandai pada ${time}`, 'success');
+            }
+
+            function renderBookmarks() {
+                el.bookmarkBadge.textContent = state.bookmarks.length;
+                if (state.bookmarks.length === 0) {
+                    el.bookmarksContainer.innerHTML = `<div class="p-4 rounded-2xl bg-slate-950/60 text-center text-xs text-slate-500 italic">Belum ada momen ditandai. Tekan "Tandai Momen" atau ucapkan "tandai penting" saat merekam.</div>`;
+                    return;
+                }
+                el.bookmarksContainer.innerHTML = state.bookmarks.map(b => `
+                    <div class="p-2.5 rounded-xl glass-subtle flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 shrink-0">${b.time}</span>
+                            <span class="text-xs text-slate-300 truncate">${b.preview}</span>
+                        </div>
+                        <button onclick="deleteBookmark(${b.id})" class="text-slate-500 hover:text-rose-400 p-1">
+                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            }
+
+            window.deleteBookmark = (id) => {
+                state.bookmarks = state.bookmarks.filter(b => b.id !== id);
+                renderBookmarks();
+            };
+
+            el.btnBookmark.addEventListener('click', () => addBookmark());
+
+            function updateMetrics() {
+                const raw = el.editor.value;
+                const trimmed = raw.trim();
+                const words = trimmed ? trimmed.split(/\s+/).filter(Boolean) : [];
+                const wordCount = words.length;
+                const charCount = raw.length;
+
+                el.statWords.textContent = wordCount;
+                el.statChars.textContent = charCount;
+
+                const mins = Math.max(state.elapsedSeconds / 60, 0.08);
+                const wpm = wordCount > 0 && state.elapsedSeconds > 0 ? Math.round(wordCount / mins) : 0;
+                el.statWpm.textContent = wpm;
+
+                const readSec = Math.ceil((wordCount / 200) * 60);
+                el.statReadtime.textContent = readSec < 60 ? `${readSec} dtk` : `${Math.ceil(readSec / 60)} mnt`;
+
+                let fillers = 0;
+                const lower = trimmed.toLowerCase();
+                FILLER_WORDS.forEach(fw => {
+                    const m = lower.match(new RegExp(`\\b${fw}\\b`, 'g'));
+                    if (m) fillers += m.length;
+                });
+                el.statFillers.textContent = fillers;
+            }
+
+            el.editor.addEventListener('input', updateMetrics);
+
+            // =========================================================
+            // 8. COPY, EXPORT (.TXT, .MD, .DOC) & INDEXEDDB / LOCALSTORAGE
+            // =========================================================
+            el.btnCopy.addEventListener('click', () => {
+                if (!el.editor.value.trim()) {
+                    showToast('Editor masih kosong untuk disalin', 'warning');
+                    return;
+                }
+                el.editor.select();
+                document.execCommand('copy');
+                window.getSelection().removeAllRanges();
+                showToast('Transkrip berhasil disalin ke clipboard!', 'success');
+            });
+
+            el.btnClearEditor.addEventListener('click', () => {
+                if (!el.editor.value.trim()) return;
+                el.editor.value = '';
+                state.bookmarks = [];
+                renderBookmarks();
+                updateMetrics();
+                showToast('Editor dibersihkan', 'info');
+            });
+
+            function triggerDownload(content, filename, mime) {
+                if (!el.editor.value.trim()) {
+                    showToast('Teks masih kosong untuk diunduh', 'warning');
+                    return;
+                }
+                const blob = new Blob([content], { type: mime });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast(`Mengunduh ${filename}...`, 'success');
+            }
+
+            el.btnExpTxt.addEventListener('click', () => {
+                const date = new Date().toLocaleString('id-ID');
+                let txt = `TRANSKRIP SUARATEKS AI\nTanggal: ${date} | Durasi: ${el.timerDisplay.textContent}\n========================================\n\n${el.editor.value}`;
+                if (state.bookmarks.length) {
+                    txt += `\n\n========================================\nPENANDA MOMEN:\n` + state.bookmarks.map(b => `[${b.time}] ${b.preview}`).join('\n');
+                }
+                triggerDownload(txt, `Transkrip-${new Date().toISOString().slice(0, 10)}.txt`, 'text/plain;charset=utf-8');
+            });
+
+            el.btnExpMd.addEventListener('click', () => {
+                const date = new Date().toLocaleString('id-ID');
+                let md = `# Transkrip SuaraTeks AI\n\n- **Tanggal:** ${date}\n- **Durasi:** ${el.timerDisplay.textContent}\n- **Total Kata:** ${el.statWords.textContent}\n\n---\n\n${el.editor.value}`;
+                if (state.bookmarks.length) {
+                    md += `\n\n## Penanda Momen\n` + state.bookmarks.map(b => `- **${b.time}** — ${b.preview}`).join('\n');
+                }
+                triggerDownload(md, `Transkrip-${new Date().toISOString().slice(0, 10)}.md`, 'text/markdown;charset=utf-8');
+            });
+
+            el.btnExpDoc.addEventListener('click', () => {
+                const date = new Date().toLocaleString('id-ID');
+                const safeText = el.editor.value.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const doc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body style="font-family:Arial,sans-serif;line-height:1.6;"><h2>Transkrip SuaraTeks AI</h2><p><strong>Tanggal:</strong> ${date} | <strong>Durasi:</strong> ${el.timerDisplay.textContent}</p><hr/><p style="white-space:pre-wrap;">${safeText}</p></body></html>`;
+                triggerDownload(doc, `Transkrip-${new Date().toISOString().slice(0, 10)}.doc`, 'application/msword');
+            });
+
+            // IndexedDB Storage (Supports saving audio blobs alongside text)
+            const DB_NAME = 'SuaraTeksAIDB';
+            const STORE_NAME = 'recordings';
+
+            function openDB() {
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open(DB_NAME, 1);
+                    req.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                        }
+                    };
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+            }
+
+            async function loadAllHistory() {
+                try {
+                    const db = await openDB();
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const store = tx.objectStore(STORE_NAME);
+                    const req = store.getAll();
+                    req.onsuccess = () => {
+                        state.records = (req.result || []).sort((a, b) => b.id - a.id);
+                        renderHistory(el.historySearch.value);
+                    };
+                } catch (e) {
+                    state.records = JSON.parse(localStorage.getItem('suarateks_backup') || '[]');
+                    renderHistory(el.historySearch.value);
+                }
+            }
+
+            el.btnSaveLocal.addEventListener('click', async () => {
+                const text = el.editor.value.trim();
+                if (!text && !state.currentAudioBlob) {
+                    showToast('Belum ada transkrip atau audio untuk disimpan', 'warning');
+                    return;
+                }
+
+                const record = {
+                    id: Date.now(),
+                    date: new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }),
+                    duration: el.timerDisplay.textContent,
+                    words: el.statWords.textContent,
+                    text: text || '(Rekaman Audio Tanpa Teks)',
+                    bookmarks: [...state.bookmarks],
+                    audioBlob: state.currentAudioBlob || null
+                };
+
+                try {
+                    const db = await openDB();
+                    const tx = db.transaction(STORE_NAME, 'readwrite');
+                    tx.objectStore(STORE_NAME).put(record);
+                    tx.oncomplete = () => {
+                        loadAllHistory();
+                        showToast('Rekaman & transkrip tersimpan permanen di perangkat!', 'success');
+                    };
+                } catch (e) {
+                    // Fallback to localStorage without blob
+                    const { audioBlob, ...textOnly } = record;
+                    state.records.unshift(textOnly);
+                    localStorage.setItem('suarateks_backup', JSON.stringify(state.records));
+                    renderHistory(el.historySearch.value);
+                    showToast('Transkrip disimpan ke penyimpanan lokal!', 'success');
+                }
+            });
+
+            function renderHistory(query = '') {
+                const list = state.records.filter(r =>
+                    r.text.toLowerCase().includes(query.toLowerCase()) ||
+                    r.date.toLowerCase().includes(query.toLowerCase())
+                );
+                el.historyBadge.textContent = state.records.length;
+
+                if (list.length === 0) {
+                    el.historyList.innerHTML = `<div class="p-6 rounded-2xl bg-slate-950/60 text-center text-xs text-slate-500 italic">${query ? 'Tidak ditemukan hasil pencarian.' : 'Belum ada riwayat tersimpan. Klik "Simpan Riwayat" untuk menyimpan hasil Anda.'}</div>`;
+                    return;
+                }
+
+                el.historyList.innerHTML = list.map(r => `
+                    <div class="p-3.5 rounded-2xl glass-subtle hover:border-cyan-500/40 transition">
+                        <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
+                            <span class="font-semibold text-cyan-300/90">${r.date}</span>
+                            <span class="font-mono">${r.duration} • ${r.words} kata ${r.audioBlob ? '• 🎙️ Audio' : ''}</span>
+                        </div>
+                        <p class="text-xs text-slate-300 line-clamp-2 mb-2.5 leading-relaxed">${r.text}</p>
+                        <div class="flex items-center justify-end gap-2">
+                            <button onclick="openRecord(${r.id})" class="px-3 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-[11px] font-semibold transition">
+                                Buka & Putar
+                            </button>
+                            <button onclick="removeRecord(${r.id})" class="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition" title="Hapus">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            }
+
+            window.openRecord = (id) => {
+                const rec = state.records.find(r => r.id === id);
+                if (!rec) return;
+                el.editor.value = rec.text;
+                state.bookmarks = rec.bookmarks || [];
+                renderBookmarks();
+                updateMetrics();
+
+                if (rec.audioBlob) {
+                    state.currentAudioBlob = rec.audioBlob;
+                    if (state.currentAudioUrl) URL.revokeObjectURL(state.currentAudioUrl);
+                    state.currentAudioUrl = URL.createObjectURL(rec.audioBlob);
+                    el.audioPlayer.src = state.currentAudioUrl;
+                    el.audioResultPanel.classList.remove('hidden');
+                } else {
+                    el.audioResultPanel.classList.add('hidden');
+                }
+                showToast('Catatan & audio dimuat kembali!', 'info');
+            };
+
+            window.removeRecord = async (id) => {
+                try {
+                    const db = await openDB();
+                    const tx = db.transaction(STORE_NAME, 'readwrite');
+                    tx.objectStore(STORE_NAME).delete(id);
+                    tx.oncomplete = () => loadAllHistory();
+                } catch (e) {
+                    state.records = state.records.filter(r => r.id !== id);
+                    localStorage.setItem('suarateks_backup', JSON.stringify(state.records));
+                    renderHistory(el.historySearch.value);
+                }
+                showToast('Riwayat dihapus', 'info');
+            };
+
+            el.historySearch.addEventListener('input', (e) => renderHistory(e.target.value));
+
+            // Initialize
+            loadAllHistory();
+            updateMetrics();
+        });
+    </script>
+</body>
+</html>
+```
